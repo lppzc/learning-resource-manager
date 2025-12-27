@@ -10,8 +10,11 @@ modal-demo.html
 
 # 测试文件
 test-*.html
+verify-*.html
+# 注意：script.js 是核心文件，不要忽略它
+# 只忽略测试相关的 js 文件，保留 script.js
 test-*.js
-*.json
+verify-*.js
 
 # 日志文件
 *.log
