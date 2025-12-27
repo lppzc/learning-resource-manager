@@ -1,0 +1,30 @@
+# 编辑器配置
+.claude/
+.trae/
+
+# 开发文档
+AGENTS.md
+
+# 演示文件
+modal-demo.html
+
+# 测试文件
+test-*.html
+verify-*.html
+# 注意：script.js 是核心文件，不要忽略它
+# 只忽略测试相关的 js 文件，保留 script.js
+test-*.js
+verify-*.js
+# 忽略 JSON 测试文件
+*.json
+
+# 日志文件
+*.log
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.temp

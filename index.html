@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习资源管理器</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航栏 -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1 class="app-title">
+                    <i class="fas fa-book-open"></i>
+                    学习资源管理器
+                </h1>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-primary" id="addResourceBtn">
+                    <i class="fas fa-plus"></i>
+                    添加资源
+                </button>
+                <button class="btn btn-secondary" id="importBtn">
+                    <i class="fas fa-upload"></i>
+                    导入
+                </button>
+                <button class="btn btn-secondary" id="exportBtn">
+                    <i class="fas fa-download"></i>
+                    导出
+                </button>
+            </div>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 左侧资源管理区域 -->
+            <section class="resource-section">
+                <div class="section-header">
+                    <h2>资源管理</h2>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="resourceSearch" placeholder="搜索资源...">
+                    </div>
+                </div>
+                
+                <div class="resource-tabs">
+                    <button class="tab-btn active" data-type="all">全部</button>
+                    <button class="tab-btn" data-type="video">视频</button>
+                    <button class="tab-btn" data-type="document">文档</button>
+                    <button class="tab-btn" data-type="file">文件</button>
+                </div>
+                
+                <div class="resource-list" id="resourceList">
+                    <!-- 资源项将通过JavaScript动态生成 -->
+                </div>
+            </section>
+
+            <!-- 右侧任务看板区域 -->
+            <section class="task-section">
+                <div class="section-header">
+                    <h2>任务安排</h2>
+                    <div class="header-actions">
+                        <!-- 垃圾桶区域 -->
+                        <div class="task-trash" id="taskTrash">
+                            <div class="trash-icon">
+                                <i class="fas fa-trash"></i>
+                            </div>
+                            <div class="trash-text">拖动到此处删除</div>
+                        </div>
+                        
+                        <button class="btn btn-small btn-primary" id="addTaskBtn">
+                            <i class="fas fa-plus"></i>
+                            新任务
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="task-board">
+                    <!-- 待办任务列 -->
+                    <div class="task-column" data-status="pending">
+                        <div class="column-header">
+                            <h3>
+                                <i class="fas fa-clock"></i>
+                                待办
+                            </h3>
+                            <span class="task-count">0</span>
+                        </div>
+                        <div class="task-list" id="pendingTasks">
+                            <!-- 待办任务将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 进行中任务列 -->
+                    <div class="task-column" data-status="in-progress">
+                        <div class="column-header">
+                            <h3>
+                                <i class="fas fa-spinner"></i>
+                                进行中
+                            </h3>
+                            <span class="task-count">0</span>
+                        </div>
+                        <div class="task-list" id="inProgressTasks">
+                            <!-- 进行中任务将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 已完成任务列 -->
+                    <div class="task-column" data-status="completed">
+                        <div class="column-header">
+                            <h3>
+                                <i class="fas fa-check-circle"></i>
+                                已完成
+                            </h3>
+                            <div class="column-header-actions">
+                                <span class="task-count">0</span>
+                                <button class="column-toggle-btn" id="toggleCompleted">
+                                    <i class="fas fa-chevron-up"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="task-list" id="completedTasks">
+                            <!-- 已完成任务将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 导入/导出模态框 -->
+    <div class="modal" id="importExportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">导入/导出</h3>
+                <button class="close-btn" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="import-export-tabs">
+                    <button class="tab-btn active" data-tab="import">导入</button>
+                    <button class="tab-btn" data-tab="export">导出</button>
+                </div>
+                
+                <!-- 导入选项 -->
+                <div class="tab-content active" id="importTab">
+                    <div class="import-options">
+                        <div class="import-option">
+                            <label for="importFile" class="file-label">
+                                <i class="fas fa-file-upload"></i>
+                                <span>选择JSON文件</span>
+                                <input type="file" id="importFile" accept=".json" style="display: none;">
+                            </label>
+                            <p class="help-text">支持导入资源和任务数据</p>
+                        </div>
+                        <div class="import-preview" id="importPreview">
+                            <!-- 导入预览将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 导出选项 -->
+                <div class="tab-content" id="exportTab">
+                    <div class="export-options">
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="exportResources" checked>
+                                导出学习资源
+                            </label>
+                        </div>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="exportTasks" checked>
+                                导出学习任务
+                            </label>
+                        </div>
+                        <button class="btn btn-primary mt-2" id="downloadExport">
+                            <i class="fas fa-download"></i>
+                            下载JSON文件
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelModal">取消</button>
+                <button class="btn btn-primary" id="confirmImport" style="display: none;">确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自定义弹窗 HTML 结构 -->
+    <div class="custom-modal-overlay" id="customModalOverlay">
+        <div class="custom-modal" id="customModal">
+            <!-- 标题栏 -->
+            <div class="custom-modal-header">
+                <h3 class="custom-modal-title" id="customModalTitle">弹窗标题</h3>
+                <button class="custom-modal-close" id="customModalClose" onclick="hideModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="custom-modal-body">
+                <p class="custom-modal-message" id="customModalMessage">弹窗内容</p>
+                
+                <!-- 输入框（仅输入对话框显示） -->
+                <div class="custom-modal-input-group" id="customModalInputGroup" style="display: none;">
+                    <label class="custom-modal-input-label" id="customModalInputLabel">输入标签</label>
+                    <input type="text" class="custom-modal-input" id="customModalInput" placeholder="请输入内容">
+                    <!-- 新增多行文本框 -->
+                    <textarea class="custom-modal-textarea" id="customModalTextarea" placeholder="请输入内容" style="display: none;"></textarea>
+                    <!-- 新增下拉选择框 -->
+                    <select class="custom-modal-select" id="customModalSelect" style="display: none;">
+                        <option value="video">视频 (video)</option>
+                        <option value="document">文档 (document)</option>
+                        <option value="file">文件 (file)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 按钮区域 -->
+            <div class="custom-modal-footer">
+                <button class="btn btn-secondary" id="customModalCancel" onclick="hideModal()">取消</button>
+                <button class="btn btn-primary" id="customModalConfirm" onclick="handleConfirm()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // 为了向后兼容，保留showModal函数
+        function showModal(type, options = {}) {
+            popup.show(type, options);
+        }
+        
+        function hideModal() {
+            popup.hide();
+        }
+        
+        function handleConfirm() {
+            // 这个函数不再需要，因为Popup类已经处理了确认逻辑
+        }
+    </script>
+</body>
+</html>
