@@ -74,12 +74,18 @@ project2/
 
 ## 🚀 快速开始
 
-### 方法一：直接运行
+### 方法一：在线预览
+直接访问 GitHub Pages 测试网址：
+```
+https://lppzc.github.io/learning-resource-manager
+```
+
+### 方法二：直接运行
 1. 克隆或下载项目到本地
 2. 使用浏览器打开 `index.html` 文件
 3. 无需任何安装或配置，立即开始使用
 
-### 方法二：本地服务器运行（可选）
+### 方法三：本地服务器运行（可选）
 ```bash
 # 使用Python启动HTTP服务器
 python -m http.server 8000
