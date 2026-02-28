@@ -118,6 +118,9 @@
                             </h3>
                             <div class="column-header-actions">
                                 <span class="task-count">0</span>
+                                <button class="column-action-btn" onclick="app.clearCompletedTasks()">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                                 <button class="column-toggle-btn" id="toggleCompleted">
                                     <i class="fas fa-chevron-up"></i>
                                 </button>
@@ -231,20 +234,6 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <script>
-        // 为了向后兼容，保留showModal函数
-        function showModal(type, options = {}) {
-            popup.show(type, options);
-        }
-        
-        function hideModal() {
-            popup.hide();
-        }
-        
-        function handleConfirm() {
-            // 这个函数不再需要，因为Popup类已经处理了确认逻辑
-        }
-    </script>
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>
