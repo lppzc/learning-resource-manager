@@ -11,6 +11,8 @@ class LearningResourceManager {
         this.taskManager = new TaskManager(this.storage);
         this.currentFilter = 'all';
         this.currentSearch = '';
+        // 版本号配置 - 可以从环境变量或配置文件中获取
+        this.appVersion = process.env.APP_VERSION || '1.0.0';
         this.init();
     }
     
@@ -134,6 +136,15 @@ class LearningResourceManager {
         this.renderResources();
         this.renderTasks();
         this.initCompletedColumnState();
+        this.displayVersionNumber();
+    }
+    
+    // 显示版本号
+    displayVersionNumber() {
+        const versionElement = document.getElementById('versionNumber');
+        if (versionElement) {
+            versionElement.textContent = `版本 ${this.appVersion}`;
+        }
     }
 
     // 绑定事件
