@@ -1,13 +1,10 @@
 // 任务管理模块 - 负责学习任务的管理
+import { generateId, formatDate, isOverdue, getDaysDifference } from './utils.js';
+
 class TaskManager {
     constructor(storage) {
         this.storage = storage;
         this.tasks = this.storage.get('tasks', []);
-    }
-
-    // 生成唯一ID
-    generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
 
     // 添加任务

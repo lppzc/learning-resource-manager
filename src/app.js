@@ -2,17 +2,22 @@
 import Storage from './storage.js';
 import ResourceManager from './resourceManager.js';
 import TaskManager from './taskManager.js';
+import TagManager from './tagManager.js';
 import Popup from './popup.js';
+import { ImportValidator } from './validator.js';
+import { HistoryStack, deepClone } from './utils.js';
 
 class LearningResourceManager {
     constructor() {
         this.storage = new Storage();
         this.resourceManager = new ResourceManager(this.storage);
         this.taskManager = new TaskManager(this.storage);
+        this.tagManager = new TagManager(this.storage);
+        this.history = new HistoryStack(50); // 最多保存50个操作历史
         this.currentFilter = 'all';
         this.currentSearch = '';
         // 版本号配置 - 可以从环境变量或配置文件中获取
-        this.appVersion = process.env.APP_VERSION || '1.0.0';
+        this.appVersion = typeof process !== 'undefined' && process.env ? process.env.APP_VERSION || '1.0.0' : '1.0.0';
         this.init();
     }
     
@@ -137,13 +142,193 @@ class LearningResourceManager {
         this.renderTasks();
         this.initCompletedColumnState();
         this.displayVersionNumber();
+        // 检查逾期任务并提醒
+        this.checkOverdueTasks();
+        // 渲染标签筛选
+        this.renderTagFilter();
+    }
+
+    // 检查逾期任务并提醒
+    checkOverdueTasks() {
+        const allTasks = this.taskManager.getAllTasks();
+        const now = new Date();
+        const overdueTasks = allTasks.filter(task => {
+            return task.dueDate &&
+                   new Date(task.dueDate) < now &&
+                   task.status !== 'completed';
+        });
+
+        if (overdueTasks.length > 0) {
+            // 检查是否已经提醒过（避免每次打开都提醒）
+            const lastReminder = this.storage.get('overdueReminderDate', '');
+            const today = new Date().toDateString();
+
+            if (lastReminder !== today) {
+                // 保存今天的提醒日期
+                this.storage.setImmediately('overdueReminderDate', today);
+
+                // 显示提醒
+                setTimeout(() => {
+                    showModal('info', {
+                        title: '任务逾期提醒',
+                        message: `您有 ${overdueTasks.length} 个任务已逾期，请及时处理！`,
+                        confirmText: '知道了'
+                    });
+                }, 1000);
+            }
+        }
+    }
+
+    // 撤销操作
+    undo() {
+        if (!this.history.canUndo()) {
+            return;
+        }
+
+        const action = this.history.undoStack[this.history.undoStack.length - 1];
+        if (!action) return;
+
+        // 执行撤销操作
+        if (action.type === 'resource') {
+            if (action.operation === 'add') {
+                // 撤销添加 = 删除
+                this.resourceManager.deleteResource(action.data.id);
+            } else if (action.operation === 'delete') {
+                // 撤销删除 = 重新添加
+                this.resourceManager.resources.push(action.data);
+                this.resourceManager.save();
+            } else if (action.operation === 'update') {
+                // 撤销更新 = 恢复旧数据
+                const index = this.resourceManager.resources.findIndex(r => r.id === action.data.id);
+                if (index !== -1) {
+                    this.resourceManager.resources[index] = action.oldData;
+                    this.resourceManager.save();
+                }
+            }
+            this.renderResources();
+        } else if (action.type === 'task') {
+            if (action.operation === 'add') {
+                this.taskManager.deleteTask(action.data.id);
+            } else if (action.operation === 'delete') {
+                this.taskManager.tasks.push(action.data);
+                this.taskManager.save();
+            } else if (action.operation === 'update') {
+                const index = this.taskManager.tasks.findIndex(t => t.id === action.data.id);
+                if (index !== -1) {
+                    this.taskManager.tasks[index] = action.oldData;
+                    this.taskManager.save();
+                }
+            } else if (action.operation === 'status') {
+                // 撤销状态变更
+                const task = this.taskManager.getTaskById(action.data.id);
+                if (task) {
+                    task.status = action.oldStatus;
+                    task.updatedAt = new Date().toISOString();
+                    this.taskManager.save();
+                }
+            }
+            this.renderTasks();
+        }
+
+        // 显示撤销成功提示
+        showModal('info', {
+            title: '撤销成功',
+            message: '操作已撤销',
+            confirmText: '确定'
+        });
+    }
+
+    // 重做操作
+    redo() {
+        if (!this.history.canRedo()) {
+            return;
+        }
+
+        const action = this.history.redoStack[this.history.redoStack.length - 1];
+        if (!action) return;
+
+        // 执行重做操作
+        if (action.type === 'resource') {
+            if (action.operation === 'add') {
+                this.resourceManager.resources.push(action.data);
+                this.resourceManager.save();
+            } else if (action.operation === 'delete') {
+                const index = this.resourceManager.resources.findIndex(r => r.id === action.data.id);
+                if (index !== -1) {
+                    this.resourceManager.resources.splice(index, 1);
+                    this.resourceManager.save();
+                }
+            } else if (action.operation === 'update') {
+                const index = this.resourceManager.resources.findIndex(r => r.id === action.data.id);
+                if (index !== -1) {
+                    this.resourceManager.resources[index] = action.data;
+                    this.resourceManager.save();
+                }
+            }
+            this.renderResources();
+        } else if (action.type === 'task') {
+            if (action.operation === 'add') {
+                this.taskManager.tasks.push(action.data);
+                this.taskManager.save();
+            } else if (action.operation === 'delete') {
+                const index = this.taskManager.tasks.findIndex(t => t.id === action.data.id);
+                if (index !== -1) {
+                    this.taskManager.tasks.splice(index, 1);
+                    this.taskManager.save();
+                }
+            } else if (action.operation === 'update') {
+                const index = this.taskManager.tasks.findIndex(t => t.id === action.data.id);
+                if (index !== -1) {
+                    this.taskManager.tasks[index] = action.data;
+                    this.taskManager.save();
+                }
+            } else if (action.operation === 'status') {
+                const task = this.taskManager.getTaskById(action.data.id);
+                if (task) {
+                    task.status = action.newStatus;
+                    task.updatedAt = new Date().toISOString();
+                    this.taskManager.save();
+                }
+            }
+            this.renderTasks();
+        }
+
+        // 显示重做成功提示
+        showModal('info', {
+            title: '重做成功',
+            message: '操作已重做',
+            confirmText: '确定'
+        });
+    }
+
+    // 记录操作到历史（供内部使用）
+    recordOperation(type, operation, data, oldData = null, oldStatus = null, newStatus = null) {
+        this.history.execute(
+            () => {}, // 重做时不需要额外操作，因为在 redo 方法中处理
+            () => {}  // 撤销时不需要额外操作，因为在 undo 方法中处理
+        );
+        // 手动添加到历史栈
+        this.history.undoStack.push({
+            type,
+            operation,
+            data: deepClone(data),
+            oldData: oldData ? deepClone(oldData) : null,
+            oldStatus,
+            newStatus
+        });
+        // 清除重做栈
+        this.history.redoStack = [];
     }
     
     // 显示版本号
     displayVersionNumber() {
+        console.log('displayVersionNumber called');
+        console.log('appVersion:', this.appVersion);
         const versionElement = document.getElementById('versionNumber');
+        console.log('versionElement:', versionElement);
         if (versionElement) {
             versionElement.textContent = `版本 ${this.appVersion}`;
+            console.log('Version updated successfully');
         }
     }
 
@@ -152,7 +337,10 @@ class LearningResourceManager {
         // 资源相关事件
         document.getElementById('addResourceBtn').addEventListener('click', () => this.showAddResourceModal());
         document.getElementById('resourceSearch').addEventListener('input', (e) => this.handleResourceSearch(e));
-        
+
+        // 标签管理按钮
+        document.getElementById('manageTagsBtn').addEventListener('click', () => this.showTagManagerModal());
+
         // 资源标签切换
         document.querySelectorAll('.resource-tabs .tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.handleResourceFilter(e));
@@ -195,11 +383,25 @@ class LearningResourceManager {
         if (completedColumnHeader) {
             completedColumnHeader.addEventListener('click', (e) => {
                 // 排除点击按钮的情况，避免重复触发
-                if (!e.target.closest('.column-toggle-btn')) {
+                if (!e.target.closest('.column-toggle-btn') && !e.target.closest('.column-action-btn')) {
                     this.toggleCompletedColumn();
                 }
             });
         }
+
+        // 键盘快捷键：Ctrl+Z 撤销，Ctrl+Y 重做
+        document.addEventListener('keydown', (e) => {
+            // 检查是否按下了 Ctrl 或 Cmd 键
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.undo();
+                } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+                    e.preventDefault();
+                    this.redo();
+                }
+            }
+        });
     }
     
     // 切换已完成列表的折叠状态
@@ -606,6 +808,205 @@ class LearningResourceManager {
         return icons[type] || 'book';
     }
 
+    // 显示标签管理模态框
+    showTagManagerModal() {
+        const tags = this.tagManager.getAllTagsSorted();
+
+        let tagsHTML = '<div class="tag-manager-list">';
+
+        if (tags.length === 0) {
+            tagsHTML += '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">暂无标签，请创建标签</p>';
+        } else {
+            tags.forEach(tag => {
+                const usageCount = this.tagManager.getTagUsageCount(this.resourceManager, tag.id);
+                tagsHTML += `
+                    <div class="tag-manager-item" data-tag-id="${tag.id}">
+                        <span class="tag-color" style="background-color: ${tag.color};"></span>
+                        <span class="tag-name">${tag.name}</span>
+                        <span class="tag-usage-count">${usageCount} 个资源</span>
+                        <div class="tag-actions">
+                            <button class="btn-icon edit-tag-btn" title="编辑" onclick="app.editTag('${tag.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon delete-tag-btn" title="删除" onclick="app.deleteTag('${tag.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        tagsHTML += '</div>';
+
+        const html = `
+            <div class="tag-manager-container">
+                <div class="tag-manager-header">
+                    <h4>标签管理</h4>
+                    <button class="btn btn-primary btn-small" id="addNewTagBtn">
+                        <i class="fas fa-plus"></i> 新建标签
+                    </button>
+                </div>
+                ${tagsHTML}
+            </div>
+        `;
+
+        showModal('info', {
+            title: '标签管理',
+            message: html,
+            confirmText: '关闭',
+            html: true,
+            onConfirm: () => {}
+        });
+
+        // 绑定新建标签按钮事件
+        setTimeout(() => {
+            const addBtn = document.getElementById('addNewTagBtn');
+            if (addBtn) {
+                addBtn.addEventListener('click', () => this.addNewTag());
+            }
+        }, 100);
+    }
+
+    // 添加新标签
+    addNewTag() {
+        showModal('input', {
+            title: '新建标签',
+            message: '请输入标签名称',
+            inputLabel: '标签名称',
+            inputPlaceholder: '请输入标签名称',
+            confirmText: '创建',
+            onConfirm: (name) => {
+                if (name && name.trim()) {
+                    this.tagManager.createTag(name.trim());
+                    this.showTagManagerModal(); // 刷新列表
+
+                    showModal('info', {
+                        title: '创建成功',
+                        message: `标签 "${name}" 创建成功`,
+                        confirmText: '确定'
+                    });
+                }
+            }
+        });
+    }
+
+    // 编辑标签
+    editTag(tagId) {
+        const tag = this.tagManager.getTagById(tagId);
+        if (!tag) return;
+
+        showModal('input', {
+            title: '编辑标签',
+            message: '请输入新的标签名称',
+            inputLabel: '标签名称',
+            inputValue: tag.name,
+            inputPlaceholder: '请输入标签名称',
+            confirmText: '保存',
+            onConfirm: (name) => {
+                if (name && name.trim()) {
+                    this.tagManager.updateTag(tagId, { name: name.trim() });
+                    this.showTagManagerModal(); // 刷新列表
+                }
+            }
+        });
+    }
+
+    // 删除标签
+    deleteTag(tagId) {
+        const tag = this.tagManager.getTagById(tagId);
+        if (!tag) return;
+
+        const usageCount = this.tagManager.getTagUsageCount(this.resourceManager, tagId);
+
+        showModal('confirm', {
+            title: '确认删除',
+            message: `确定要删除标签 "${tag.name}" 吗？${usageCount > 0 ? `<br>该标签正在被 ${usageCount} 个资源使用，删除后将从这些资源中移除。` : ''}`,
+            confirmText: '删除',
+            onConfirm: () => {
+                // 从所有资源中移除该标签
+                this.tagManager.removeTagFromResources(this.resourceManager, tagId);
+                // 删除标签
+                this.tagManager.deleteTag(tagId);
+                this.showTagManagerModal(); // 刷新列表
+            }
+        });
+    }
+
+    // 渲染标签筛选列表
+    renderTagFilter() {
+        const tagFilterArea = document.getElementById('tagFilterArea');
+        const tagFilterList = document.getElementById('tagFilterList');
+        if (!tagFilterArea || !tagFilterList) return;
+
+        const tags = this.tagManager.getAllTagsSorted();
+
+        if (tags.length === 0) {
+            tagFilterArea.style.display = 'none';
+            return;
+        }
+
+        tagFilterArea.style.display = 'flex';
+        let html = '';
+
+        tags.forEach(tag => {
+            html += `<span class="tag-filter-item" data-tag-id="${tag.id}" style="background-color: ${tag.color};">${tag.name}</span>`;
+        });
+
+        tagFilterList.innerHTML = html;
+
+        // 绑定点击事件
+        tagFilterList.querySelectorAll('.tag-filter-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const tagId = item.dataset.tagId;
+                this.filterByTag(tagId);
+            });
+        });
+    }
+
+    // 按标签筛选
+    filterByTag(tagId) {
+        // 切换选中状态
+        const tagFilterItems = document.querySelectorAll('.tag-filter-item');
+        tagFilterItems.forEach(item => {
+            if (item.dataset.tagId === tagId) {
+                item.classList.toggle('active');
+            }
+        });
+
+        // 筛选资源
+        const activeTagIds = Array.from(document.querySelectorAll('.tag-filter-item.active'))
+            .map(item => item.dataset.tagId);
+
+        const resourceList = document.getElementById('resourceList');
+        let resources = this.resourceManager.getAllResources();
+
+        // 应用类型筛选
+        if (this.currentFilter !== 'all') {
+            resources = resources.filter(resource => resource.type === this.currentFilter);
+        }
+
+        // 应用标签筛选
+        if (activeTagIds.length > 0) {
+            resources = resources.filter(resource =>
+                resource.tags && resource.tags.some(tagId => activeTagIds.includes(tagId))
+            );
+        }
+
+        // 应用搜索
+        if (this.currentSearch) {
+            resources = this.resourceManager.searchResources(this.currentSearch);
+        }
+
+        // 渲染
+        const fragment = document.createDocumentFragment();
+        resources.forEach(resource => {
+            const resourceElement = this.createResourceElement(resource);
+            fragment.appendChild(resourceElement);
+        });
+        resourceList.innerHTML = '';
+        resourceList.appendChild(fragment);
+    }
+
     // 渲染任务列表
     renderTasks() {
         // 获取各状态任务
@@ -644,12 +1045,17 @@ class LearningResourceManager {
         div.className = 'task-card';
         div.dataset.id = task.id;
         div.draggable = true; // 启用拖拽
-        
+
         // 获取任务关联的资源列表
         const resourceIds = task.resources || (task.resourceId ? [task.resourceId] : []);
         // 过滤出实际存在的资源
         const validResourceIds = resourceIds.filter(resourceId => this.resourceManager.getResourceById(resourceId));
-        
+
+        // 检查是否逾期
+        const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';
+        const overdueClass = isOverdue ? 'overdue' : '';
+        const overdueText = isOverdue ? `<span class="task-overdue-badge"><i class="fas fa-exclamation-triangle"></i> 已逾期</span>` : '';
+
         div.innerHTML = `
             <div class="task-header">
                 <h3 class="task-title">${task.title}</h3>
@@ -658,7 +1064,7 @@ class LearningResourceManager {
                 </button>
             </div>
             ${task.description ? `<p class="task-description">${task.description}</p>` : ''}
-            
+
             <!-- 关联资源列表 -->
             ${validResourceIds.length > 0 ? `
                 <div class="task-resources">
@@ -676,24 +1082,25 @@ class LearningResourceManager {
                     }).join('')}
                 </div>
             ` : ''}
-            
-            <div class="task-meta">
+
+            <div class="task-meta ${overdueClass}">
                 <span class="task-priority ${task.priority}">${task.priority}</span>
-                ${task.dueDate ? `<span class="task-due-date"><i class="fas fa-calendar"></i> ${new Date(task.dueDate).toLocaleDateString()}</span>` : ''}
+                ${task.dueDate ? `<span class="task-due-date ${isOverdue ? 'overdue' : ''}"><i class="fas fa-calendar"></i> ${new Date(task.dueDate).toLocaleDateString()}</span>` : ''}
+                ${overdueText}
                 ${validResourceIds.length > 0 ? `<span class="task-resource"><i class="fas fa-link"></i> 关联${validResourceIds.length}个资源</span>` : ''}
             </div>
         `;
-        
+
         // 添加拖拽事件监听器
         div.addEventListener('dragstart', (e) => this.handleDragStart(e));
         div.addEventListener('dragend', (e) => this.handleDragEnd(e));
-        
+
         // 添加拖拽目标事件监听器（用于接收资源拖拽）
         div.addEventListener('dragover', (e) => this.handleTaskDragOver(e));
         div.addEventListener('dragenter', (e) => this.handleTaskDragEnter(e));
         div.addEventListener('dragleave', (e) => this.handleTaskDragLeave(e));
         div.addEventListener('drop', (e) => this.handleTaskDrop(e, task));
-        
+
         return div;
     }
 
@@ -974,8 +1381,8 @@ class LearningResourceManager {
     // 显示添加任务模态框
     showAddTaskModal() {
         // 使用自定义输入弹窗添加任务
-        let newTask = { title: '', description: '', priority: 'medium' };
-        
+        let newTask = { title: '', description: '', priority: 'medium', dueDate: null };
+
         // 第一步：输入标题
         showModal('input', {
             title: '添加任务',
@@ -995,7 +1402,7 @@ class LearningResourceManager {
                         confirmText: '下一步',
                         onConfirm: (description) => {
                             newTask.description = description;
-                            // 第三步：输入优先级
+                            // 第三步：选择优先级
                             showModal('input', {
                                 title: '添加任务',
                                 message: '请选择优先级',
@@ -1007,11 +1414,24 @@ class LearningResourceManager {
                                     { value: 'medium', text: '中 (medium)' },
                                     { value: 'high', text: '高 (high)' }
                                 ],
-                                confirmText: '添加',
+                                confirmText: '下一步',
                                 onConfirm: (priority) => {
                                     newTask.priority = priority || 'medium';
-                                    this.taskManager.addTask(newTask);
-                                    this.renderTasks();
+                                    // 第四步：选择截止日期（可选）
+                                    showModal('input', {
+                                        title: '添加任务',
+                                        message: '请选择截止日期（可选，不选择则无截止日期）',
+                                        inputLabel: '截止日期',
+                                        inputType: 'date',
+                                        inputPlaceholder: '请选择截止日期',
+                                        confirmText: '添加',
+                                        onConfirm: (dueDate) => {
+                                            // 如果用户选择了截止日期，保存日期
+                                            newTask.dueDate = dueDate || null;
+                                            this.taskManager.addTask(newTask);
+                                            this.renderTasks();
+                                        }
+                                    });
                                 }
                             });
                         }
@@ -1027,13 +1447,13 @@ class LearningResourceManager {
         if (this.searchTimeout) {
             clearTimeout(this.searchTimeout);
         }
-        
-        // 设置新的定时器
+
+        // 设置新的定时器（优化为150ms）
         this.searchTimeout = setTimeout(() => {
             this.currentSearch = e.target.value;
             this.renderResources();
             delete this.searchTimeout;
-        }, 300); // 300ms防抖延迟
+        }, 150); // 150ms防抖延迟
     }
 
     // 处理资源筛选
@@ -1210,28 +1630,56 @@ class LearningResourceManager {
     showImportPreview(data) {
         const preview = document.getElementById('importPreview');
         const confirmBtn = document.getElementById('confirmImport');
-        
+
+        // 使用验证器验证数据
+        const validation = ImportValidator.validateImportData(data);
+
         let previewHTML = '<h4>导入预览</h4>';
-        
-        if (data.resources && data.resources.length > 0) {
-            previewHTML += `<p>资源数量：${data.resources.length}</p>`;
+
+        if (validation.errors.length > 0) {
+            previewHTML += `<div class="import-warnings">`;
+            previewHTML += `<p class="warning-title"><i class="fas fa-exclamation-triangle"></i> 发现以下问题：</p>`;
+            previewHTML += `<ul class="warning-list">`;
+            validation.errors.slice(0, 5).forEach(err => {
+                previewHTML += `<li>${err}</li>`;
+            });
+            if (validation.errors.length > 5) {
+                previewHTML += `<li>...还有 ${validation.errors.length - 5} 个问题</li>`;
+            }
+            previewHTML += `</ul></div>`;
         }
-        
-        if (data.tasks && data.tasks.length > 0) {
-            previewHTML += `<p>任务数量：${data.tasks.length}</p>`;
+
+        previewHTML += `<div class="import-summary">`;
+        previewHTML += `<p><strong>资源：</strong> ${validation.summary.totalResources} 个`;
+        if (validation.summary.resourceErrors > 0) {
+            previewHTML += ` <span class="error-count">(${validation.summary.resourceErrors} 个无效)</span>`;
         }
-        
+        previewHTML += `</p>`;
+
+        previewHTML += `<p><strong>任务：</strong> ${validation.summary.totalTasks} 个`;
+        if (validation.summary.taskErrors > 0) {
+            previewHTML += ` <span class="error-count">(${validation.summary.taskErrors} 个无效)</span>`;
+        }
+        previewHTML += `</p>`;
+        previewHTML += `</div>`;
+
+        // 存储验证后的数据
+        this._importData = validation;
+
         preview.innerHTML = previewHTML;
         confirmBtn.style.display = 'inline-block';
-        
+
         // 绑定确认导入事件
         confirmBtn.onclick = () => {
-            this.confirmImport(data);
+            this.confirmImport(validation);
         };
     }
 
     // 确认导入
-    confirmImport(data) {
+    confirmImport(validation) {
+        const data = validation;
+
+        // 使用验证后的数据
         if (data.resources && data.resources.length > 0) {
             data.resources.forEach(resource => {
                 this.resourceManager.addResource(resource);
@@ -1239,7 +1687,7 @@ class LearningResourceManager {
             // 立即保存资源数据
             this.resourceManager.saveImmediately();
         }
-        
+
         if (data.tasks && data.tasks.length > 0) {
             data.tasks.forEach(task => {
                 this.taskManager.addTask(task);
@@ -1247,19 +1695,27 @@ class LearningResourceManager {
             // 立即保存任务数据
             this.taskManager.saveImmediately();
         }
-        
+
         // 重新渲染
         this.renderResources();
         this.renderTasks();
-        
+
         // 隐藏模态框
         this.hideImportExportModal();
-        
+
+        // 根据验证结果显示不同的消息
+        const message = validation.errors.length > 0
+            ? `数据已导入，但有 ${validation.errors.length} 个问题已自动修复`
+            : '数据已成功导入';
+
         showModal('info', {
-            title: '导入成功',
-            message: '数据已成功导入',
+            title: '导入完成',
+            message: message,
             confirmText: '确定'
         });
+
+        // 清理临时数据
+        this._importData = null;
     }
     
     // 清空已完成的任务
