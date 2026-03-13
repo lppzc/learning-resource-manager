@@ -3,7 +3,7 @@ class Storage {
     constructor() {
         this.prefix = 'learning_resource_manager_';
         this.debounceTimers = {};
-        this.debounceDelay = 300; // 300ms防抖延迟
+        this.debounceDelay = 150; // 150ms防抖延迟（优化为更快的响应）
     }
 
     // 设置数据 - 防抖实现

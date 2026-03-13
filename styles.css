@@ -345,6 +345,114 @@ html {
     font-weight: 500;
 }
 
+/* 图标按钮 */
+.btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.btn-icon:hover {
+    background: var(--primary-light);
+    color: var(--primary-color);
+}
+
+/* 标签管理相关样式 */
+.tag-manager-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.tag-manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tag-manager-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.tag-manager-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tag-manager-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    gap: 0.75rem;
+}
+
+.tag-manager-item .tag-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tag-manager-item .tag-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.tag-manager-item .tag-usage-count {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.tag-manager-item .tag-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* 标签筛选区域 */
+.tag-filter-area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    flex-wrap: wrap;
+}
+
+.tag-filter-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.tag-filter-item {
+    display: inline-flex;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    color: white;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+}
+
+.tag-filter-item:hover {
+    opacity: 0.8;
+}
+
+.tag-filter-item.active {
+    opacity: 1;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
 /* 危险按钮样式 */
 .btn-danger {
     background: linear-gradient(135deg, var(--danger-color), #b91c1c);
@@ -953,6 +1061,9 @@ html {
     align-items: center;
     justify-content: center;
     font-size: 0.875rem;
+    width: 28px;
+    height: 28px;
+    aspect-ratio: 1;
 }
 
 .column-toggle-btn:hover {
@@ -977,6 +1088,9 @@ html {
     align-items: center;
     justify-content: center;
     font-size: 0.875rem;
+    width: 28px;
+    height: 28px;
+    aspect-ratio: 1;
 }
 
 .column-action-btn:hover {
@@ -987,6 +1101,11 @@ html {
 
 .column-action-btn:active {
     transform: scale(0.95);
+}
+
+/* 垃圾桶按钮特定样式 */
+.trash-btn {
+    margin-right: var(--spacing-md);
 }
 
 /* 折叠状态样式 */
@@ -1408,6 +1527,27 @@ html {
     padding: 0.25rem 0;
 }
 
+.task-card .task-due-date.overdue {
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
+.task-card .task-due-date.overdue i {
+    color: var(--danger-color);
+}
+
+.task-card .task-overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background: var(--danger-color);
+    color: white;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
 .task-card .task-due-date i {
     color: var(--primary-color);
 }
@@ -1478,6 +1618,16 @@ html {
 }
 
 /* 任务卡片拖拽目标样式 */
+/* 任务卡片整体逾期样式 */
+.task-card.overdue {
+    border-left: 3px solid var(--danger-color);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.03), rgba(239, 68, 68, 0.08));
+}
+
+.task-card .task-meta.overdue {
+    color: var(--danger-color);
+}
+
 .task-card.drag-over {
     border: 2px solid var(--primary-color);
     background: linear-gradient(135deg, rgba(91, 33, 182, 0.05), rgba(139, 92, 246, 0.05));

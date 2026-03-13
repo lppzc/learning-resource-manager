@@ -1,9 +1,15 @@
 // 主入口文件 - 整合所有模块
 import LearningResourceManager from './app.js';
 import Popup from './popup.js';
+import errorHandler from './errorHandler.js';
 
 // 初始化弹窗实例
 const popup = new Popup();
+// 将 popup 暴露到全局，以便 errorHandler 使用
+window.popup = popup;
+
+// 初始化错误处理器（在其他初始化之前）
+// 错误处理器会自动设置全局错误捕获
 
 // 替换浏览器默认弹窗
 window.alert = (message, options) => popup.alert(message, options);

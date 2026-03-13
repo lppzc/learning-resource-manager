@@ -1,13 +1,10 @@
 // 资源管理模块 - 负责学习资源的管理
+import { generateId, isValidUrl, validateRequiredFields, uniqueArray } from './utils.js';
+
 class ResourceManager {
     constructor(storage) {
         this.storage = storage;
         this.resources = this.storage.get('resources', []);
-    }
-
-    // 生成唯一ID
-    generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
 
     // 添加资源

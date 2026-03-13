@@ -42,19 +42,30 @@
             <section class="resource-section">
                 <div class="section-header">
                     <h2>资源管理</h2>
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="resourceSearch" placeholder="搜索资源...">
+                    <div class="header-actions">
+                        <button class="btn btn-small btn-secondary" id="manageTagsBtn" title="管理标签">
+                            <i class="fas fa-tags"></i>
+                        </button>
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="resourceSearch" placeholder="搜索资源...">
+                        </div>
                     </div>
                 </div>
-                
+
                 <div class="resource-tabs">
                     <button class="tab-btn active" data-type="all">全部</button>
                     <button class="tab-btn" data-type="video">视频</button>
                     <button class="tab-btn" data-type="document">文档</button>
                     <button class="tab-btn" data-type="file">文件</button>
                 </div>
-                
+
+                <!-- 标签筛选区域 -->
+                <div class="tag-filter-area" id="tagFilterArea" style="display: none;">
+                    <span class="tag-filter-label">标签筛选：</span>
+                    <div class="tag-filter-list" id="tagFilterList"></div>
+                </div>
+
                 <div class="resource-list" id="resourceList">
                     <!-- 资源项将通过JavaScript动态生成 -->
                 </div>
@@ -118,7 +129,7 @@
                             </h3>
                             <div class="column-header-actions">
                                 <span class="task-count">0</span>
-                                <button class="column-action-btn" onclick="app.clearCompletedTasks()">
+                                <button class="column-action-btn trash-btn" onclick="app.clearCompletedTasks()">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                                 <button class="column-toggle-btn" id="toggleCompleted">
@@ -234,12 +245,12 @@
         </div>
     </div>
 
-    <script type="module" src="src/main.js"></script>
     <!-- 版本号显示 -->
     <footer class="app-footer">
         <div class="version-info">
             <span id="versionNumber">版本号加载中...</span>
         </div>
     </footer>
+    <script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -81,23 +81,24 @@ class Popup {
             this.cancelBtn.style.display = 'inline-flex';
             this.cancelBtn.textContent = options.cancelText || '取消';
             this.confirmBtn.textContent = options.confirmText || '确定';
-            
+
             // 显示输入框组
             this.inputGroup.style.display = 'block';
             this.inputLabel.textContent = options.inputLabel || '输入内容';
-            
+
             // 配置输入类型和下拉选择
             const inputType = options.inputType || 'text';
-            this.input.style.display = inputType === 'text' ? 'block' : 'none';
+            this.input.style.display = (inputType === 'text' || inputType === 'date' || inputType === 'datetime-local') ? 'block' : 'none';
             this.textarea.style.display = inputType === 'textarea' ? 'block' : 'none';
             this.select.style.display = inputType === 'select' ? 'block' : 'none';
-            
+
             // 设置输入框属性
             this.input.placeholder = options.inputPlaceholder || '请输入内容';
+            this.input.type = inputType === 'select' || inputType === 'textarea' ? 'text' : inputType;
             this.textarea.placeholder = options.inputPlaceholder || '请输入内容';
-            
+
             // 设置默认值
-            if (inputType === 'text') {
+            if (inputType === 'text' || inputType === 'date' || inputType === 'datetime-local') {
                 this.input.value = options.inputValue || '';
                 this.input.focus();
             } else if (inputType === 'textarea') {
@@ -114,7 +115,7 @@ class Popup {
                         this.select.appendChild(opt);
                     });
                 }
-                
+
                 this.select.value = options.inputValue || '';
             }
         }
